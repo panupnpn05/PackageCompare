@@ -1,103 +1,132 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
+
+export default function ExcelComparePage() {
+  const [fileA, setFileA] = useState(null);
+  const [result, setResult] = useState(null);
+  const [ProNames, setProName] = useState({});
+
+  const handleFileAChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) setFileA(file);
+  };
+
+  const handleCompare = async () => {
+    if (!fileA) {
+      alert('Please upload File A first.');
+      return;
+    }
+
+    try {
+      // Step 1: Read File A (user upload) and select the ReportExport_IvrJourney sheet
+      const workbookA = XLSX.read(await fileA.arrayBuffer(), { type: 'array' });
+      const sheetA = workbookA.Sheets['ReportExport_IvrJourney'];
+      if (!sheetA) {
+        alert('Sheet "ReportExport_IvrJourney" not found in File A.');
+        return;
+      }
+      const dataA = XLSX.utils.sheet_to_json(sheetA);
+
+      const oCodes = dataA.map((row) => Object.values(row).find((cell) => typeof cell === 'string' && cell.startsWith('O')));
+
+      console.log('O Codes from File A:', oCodes);
+
+      // Step 2: Read File B (fixed)
+      const res = await fetch('/file-b.xlsx');
+      const arrayBuffer = await res.arrayBuffer();
+      const workbookB = XLSX.read(arrayBuffer, { type: 'array' });
+
+      // Step 3: Map O code to P code from the FBB Pack sheet (Column C to Column D)
+      const fbbPackSheet = workbookB.Sheets['FBB Pack'];
+      const dataFbbPack = XLSX.utils.sheet_to_json(fbbPackSheet);
+
+      console.log(dataFbbPack)
+
+      const oToPMap = {};
+      const ProNames = {};
+      
+      dataFbbPack.forEach((row) => {
+        const oCode = row.__EMPTY_2;
+        const pCode = row.__EMPTY_3;
+        const ProName = row.__EMPTY_7;
+      
+
+        if (oCodes.includes(oCode)) {
+          oToPMap[oCode] = pCode;
+          ProNames[oCode] = oCode + ' - ' + ProName;
+        }
+      });
+
+      console.log(oToPMap);
+      // const PromotionNames = Object.values()
+      const pCodes = Object.values(oToPMap);
+      console.log('Mapped P Codes:', pCodes);
+      console.log('Promotion Names:', ProNames);
+
+      if (pCodes.length < 2) {
+        setResult('❌ Not enough matching P codes found.');
+        return;
+      }
+
+      // Step 4: Check in MenuPackageList if both P codes are in the same row
+      const menuPackageSheet = workbookB.Sheets['Package Menu (FBB)'];
+      const dataMenuPackage = XLSX.utils.sheet_to_json(menuPackageSheet, { header: 1 });
+
+      const foundRow = dataMenuPackage.find((row) => {
+        return pCodes.every((pCode) => row.includes(pCode));
+      });
+
+      if (foundRow) {
+        setResult('✅ Both packages are in the same group!');
+        setProName(ProNames);
+      } else {
+        setResult('❌ Packages are not in the same group.');
+      }
+
+    } catch (error) {
+      console.error(error);
+      setResult('⚠️ Error processing files.');
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="p-6 space-y-4 flex justify-center items-center flex-col">
+      <h1 className="text-2xl font-bold">Excel Package Comparator</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      <div>
+        <label className="block mb-2">Upload File A (O codes):</label>
+        <input type="file" accept=".xlsx, .xls" onChange={handleFileAChange} />
+      </div>
+
+      <button
+        onClick={handleCompare}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 cursor-pointer"
+      >
+        Compare Packages
+      </button>
+
+      {result && <div className="mt-4 text-lg">{result}</div>}
+      {result && (
+  <div className="mt-4">
+    <h2 className="font-semibold mb-2">Promotion Names:</h2>
+    {Object.entries(ProNames).map(([oCode, proName]) => (
+      <div key={oCode} className="flex items-center space-x-2 mb-2">
+        <span>{proName}</span>
+        <button
+          onClick={() => {
+            const nameOnly = proName.split(' - ')[1]; // take the part after the hyphen
+            navigator.clipboard.writeText(nameOnly);
+          }}
+          className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400 text-sm cursor-pointer"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Copy
+        </button>
+      </div>
+    ))}
+  </div>
+)}
     </div>
   );
 }
