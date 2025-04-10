@@ -65,10 +65,10 @@ export default function ExcelComparePage() {
       console.log('Mapped P Codes:', pCodes);
       console.log('Promotion Names:', ProNames);
 
-      if (pCodes.length < 2) {
-        setResult('❌ Not enough matching P codes found.');
-        return;
-      }
+      // if (pCodes.length < 2) {
+      //   setResult('❌ Not enough matching P codes found.');
+      //   return;
+      // }
 
       // Step 4: Check in MenuPackageList if both P codes are in the same row
       const menuPackageSheet = workbookB.Sheets['Package Menu (FBB)'];
